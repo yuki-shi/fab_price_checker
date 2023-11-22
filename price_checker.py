@@ -6,6 +6,50 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from time import sleep
 
+class FaBuki():
+	def __init__(self):
+		self.driver = self.init_driver()
+
+	def init_driver(self) -> webdriver:
+		options = webdriver.ChromeOptions()
+		options.add_argument('--headless')
+		driver = webdriver.Chrome(options=options)
+		return driver	
+
+	def card_search(self, card_name: str) -> pd.DataFrame:
+		if ' ' in card_name:
+		  card_name = re.sub(' ', '_', card_name)
+		  print(card_name)
+
+		self.driver.get(f'https://www.tcgplayer.com/search/flesh-and-blood-tcg/product?Language=English&productLineName=flesh-and-blood-tcg&q={card_name}&view=grid')
+		
+		sleep (5)
+		
+		html = self.driver.page_source
+		
+		soup = BeautifulSoup(html, 'html.parser')
+		products = soup.find_all('div', class_='search-result')
+
+		product_link = []
+		product_col = []
+		product_name = []
+
+		for product in products:
+		  for hyperlink in product.find_all('a', href=True):
+		    product_link.append(hyperlink['href'])
+		  for collection in product.find_all('h4'):
+		    product_col.append(collection.text)
+		  for name in product.find_all('span', class_='search-result__title'):
+		    product_name.append(name.text)
+
+		df = pd.DataFrame([product_link, product_col, product_name]).transpose()
+		df = df.rename(columns={0: 'link',
+				        1: 'collection',
+				        2: 'card'})
+
+		df['link'] = [f'https://www.tcgplayer.com{x}' for x in df['link']]
+		return df
+
 def scrape_tcgplayer() -> str:
 	# Browser init
 	options = webdriver.ChromeOptions()
@@ -15,7 +59,9 @@ def scrape_tcgplayer() -> str:
 	# TODO: query word
 
 	# Get URL
-	browser.get('https://www.tcgplayer.com/product/502719/flesh-and-blood-tcg-dusk-till-dawn-star-struck?xid=a12ed4db2-b3d8-4443-a813-85241a960a81&Language=English')
+	#https://www.tcgplayer.com/search/flesh-and-blood-tcg/product?productLineName=flesh-and-blood-tcg&q=snatch+(red)&view=grid
+	
+	self.driver.get('https://www.tcgplayer.com/product/502719/flesh-and-blood-tcg-dusk-till-dawn-star-struck?xid=a12ed4db2-b3d8-4443-a813-85241a960a81&Language=English')
 
 	# Wait until rendered TODO
 	sleep(5)
@@ -74,5 +120,6 @@ def format_to_dataframe(html: str) -> pd.DataFrame:
 	return df		      
 
 if __name__ == '__main__':
-	df = format_to_dataframe(scrape_tcgplayer())
-	print(df.head())              
+	fabuki = FaBuki()
+	df = fabuki.card_search('snatch')
+	print(df)        
